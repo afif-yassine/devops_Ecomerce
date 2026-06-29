@@ -110,7 +110,6 @@ pipeline {
         }
 
         stage('Push') {
-            when { branch 'main' }
             steps {
                 withCredentials([usernamePassword(
                     credentialsId: 'github-token',
