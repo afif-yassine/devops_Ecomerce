@@ -10,11 +10,6 @@ terraform {
 
 provider "docker" {}
 
-# Reseau dedie partage par les conteneurs CI/CD.
-resource "docker_network" "cicd" {
-  name = var.network_name
-}
-
 # Image Docker de l'application (construite par le pipeline).
 resource "docker_image" "app" {
   name         = var.image_name
@@ -32,8 +27,9 @@ resource "docker_container" "staging" {
     ip       = "0.0.0.0"
   }
 
+  # Le reseau cicd-network est cree en amont (docker compose / pipeline).
   networks_advanced {
-    name = docker_network.cicd.name
+    name = var.network_name
   }
 
   healthcheck {

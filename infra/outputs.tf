@@ -10,5 +10,5 @@ output "container_id" {
 
 output "network_name" {
   description = "Nom du reseau Docker utilise par le staging."
-  value       = docker_network.cicd.name
+  value       = var.network_name
 }
