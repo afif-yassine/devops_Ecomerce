@@ -1,0 +1,5 @@
+[
+  {"media_buyer": "alice", "amount": 45.0},
+  {"media_buyer": "bob", "amount": 60.0},
+  {"media_buyer": "carol", "amount": 80.0}
+]

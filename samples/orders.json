@@ -1,0 +1,12 @@
+[
+  {"order_id": "1001", "media_buyer": "alice", "product": "smart-watch", "status": "delivered", "revenue": 49.9, "cost_of_goods": 18.0},
+  {"order_id": "1002", "media_buyer": "alice", "product": "smart-watch", "status": "confirmed", "revenue": 49.9, "cost_of_goods": 18.0},
+  {"order_id": "1003", "media_buyer": "alice", "product": "smart-watch", "status": "returned", "revenue": 49.9, "cost_of_goods": 18.0},
+  {"order_id": "1004", "media_buyer": "alice", "product": "smart-watch", "status": "pending", "revenue": 49.9, "cost_of_goods": 18.0},
+  {"order_id": "2001", "media_buyer": "bob", "product": "leather-bag", "status": "delivered", "revenue": 89.0, "cost_of_goods": 35.0},
+  {"order_id": "2002", "media_buyer": "bob", "product": "leather-bag", "status": "delivered", "revenue": 89.0, "cost_of_goods": 35.0},
+  {"order_id": "2003", "media_buyer": "bob", "product": "leather-bag", "status": "cancelled", "revenue": 89.0, "cost_of_goods": 35.0},
+  {"order_id": "3001", "media_buyer": "carol", "product": "sneakers", "status": "delivered", "revenue": 120.0, "cost_of_goods": 60.0},
+  {"order_id": "3002", "media_buyer": "carol", "product": "sneakers", "status": "confirmed", "revenue": 120.0, "cost_of_goods": 60.0},
+  {"order_id": "3003", "media_buyer": "carol", "product": "sneakers", "status": "returned", "revenue": 120.0, "cost_of_goods": 60.0}
+]

@@ -1,0 +1,17 @@
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+.pytest_cache/
+.git/
+.gitignore
+coverage.xml
+.coverage
+htmlcov/
+infra/.terraform/
+infra/*.tfstate
+infra/*.tfstate.backup
+monitoring/
+*.md
+.kiro/

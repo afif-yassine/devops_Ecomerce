@@ -1,0 +1,20 @@
+services:
+  api:
+    build: .
+    image: cod-metrics-api:latest
+    container_name: cod-metrics-staging
+    ports:
+      - "8001:8000"
+    networks:
+      - cicd-network
+    healthcheck:
+      # Verifie l'endpoint /health toutes les 30s (timeout 10s).
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+networks:
+  cicd-network:
+    name: cicd-network
