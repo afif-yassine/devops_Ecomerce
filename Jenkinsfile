@@ -36,7 +36,7 @@ pipeline {
 
         stage('Build & Test') {
             steps {
-                sh 'docker build -t cod-metrics-api:${IMAGE_TAG} .'
+                sh 'docker build -t cod-metrics-api:${IMAGE_TAG} -t cod-metrics-api:latest .'
                 sh '''
                     docker rm -f test-runner 2>/dev/null || true
                     set +e
@@ -130,21 +130,24 @@ pipeline {
 
         stage('IaC Apply') {
             steps {
-                dir('infra') {
-                    sh '''
-                        docker run --rm \
-                            -v /var/run/docker.sock:/var/run/docker.sock \
-                            -v "$WORKSPACE/infra":/infra -w /infra \
-                            hashicorp/terraform:latest init -input=false
-                        docker run --rm \
-                            -v /var/run/docker.sock:/var/run/docker.sock \
-                            -v "$WORKSPACE/infra":/infra -w /infra \
-                            hashicorp/terraform:latest apply -auto-approve -input=false
-                        docker run --rm \
-                            -v "$WORKSPACE/infra":/infra -w /infra \
-                            hashicorp/terraform:latest output
-                    '''
-                }
+                sh '''
+                    # Liberer le nom de conteneur s'il a ete lance par docker compose.
+                    docker rm -f cod-metrics-staging 2>/dev/null || true
+                    docker run --rm \
+                        -v /var/run/docker.sock:/var/run/docker.sock \
+                        --volumes-from jenkins \
+                        -w "$WORKSPACE/infra" \
+                        hashicorp/terraform:latest init -input=false
+                    docker run --rm \
+                        -v /var/run/docker.sock:/var/run/docker.sock \
+                        --volumes-from jenkins \
+                        -w "$WORKSPACE/infra" \
+                        hashicorp/terraform:latest apply -auto-approve -input=false
+                    docker run --rm \
+                        --volumes-from jenkins \
+                        -w "$WORKSPACE/infra" \
+                        hashicorp/terraform:latest output
+                '''
             }
         }
 
