@@ -72,7 +72,7 @@ pipeline {
                             -e SONAR_TOKEN="$SONAR_TOKEN" \
                             sonarsource/sonar-scanner-cli:latest \
                             sonar-scanner \
-                              -Dsonar.projectKey=cod-metrics-api \
+                              -Dsonar.projectKey=COD-Metrics-API \
                               -Dsonar.projectName="COD Metrics API" \
                               -Dsonar.projectBaseDir="$WORKSPACE" \
                               -Dsonar.sources=src \
