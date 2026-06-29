@@ -72,13 +72,14 @@ pipeline {
                             -e SONAR_TOKEN="$SONAR_TOKEN" \
                             sonarsource/sonar-scanner-cli:latest \
                             sonar-scanner \
-                              -Dsonar.projectKey=COD-Metrics-API \
+                              -Dsonar.projectKey=cod-metrics-api \
                               -Dsonar.projectName="COD Metrics API" \
                               -Dsonar.projectBaseDir="$WORKSPACE" \
                               -Dsonar.sources=src \
                               -Dsonar.python.version=3.11 \
                               -Dsonar.python.coverage.reportPaths=coverage.xml \
-                              -Dsonar.sourceEncoding=UTF-8
+                              -Dsonar.sourceEncoding=UTF-8 \
+                              -Dsonar.scanner.metadataFilePath="$WORKSPACE/report-task.txt"
                     '''
                 }
             }
