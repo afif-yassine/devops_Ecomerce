@@ -75,6 +75,7 @@ pipeline {
                               -Dsonar.projectKey=cod-metrics-api \
                               -Dsonar.projectName="COD Metrics API" \
                               -Dsonar.projectBaseDir="$WORKSPACE" \
+                              -Dsonar.login="$SONAR_TOKEN" \
                               -Dsonar.sources=src \
                               -Dsonar.python.version=3.11 \
                               -Dsonar.python.coverage.reportPaths=coverage.xml \
