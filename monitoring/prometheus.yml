@@ -1,0 +1,16 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+scrape_configs:
+  # Prometheus se scrape lui-meme.
+  - job_name: "prometheus"
+    static_configs:
+      - targets: ["localhost:9090"]
+
+  # Scrape de l'application COD Metrics deployee en staging.
+  # Le conteneur de staging est joignable par son nom sur cicd-network.
+  - job_name: "cod-metrics-api"
+    metrics_path: /metrics
+    static_configs:
+      - targets: ["cod-metrics-staging:8000"]
