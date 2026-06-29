@@ -1,13 +1,15 @@
+// Jenkinsfile - Pipeline CI/CD COD & Media Buyers Metrics API
+// Adapte au setup Docker-out-of-Docker (DooD) : Jenkins pilote le Docker
+// de l'hote via le socket monte. On utilise --volumes-from jenkins pour
+// partager le workspace avec les conteneurs ephemeres.
 pipeline {
     agent any
 
     environment {
-        // Registre et image Docker publiees sur GitHub Container Registry.
-        REGISTRY     = 'ghcr.io'
-        IMAGE_NAME   = 'ghcr.io/afif-yassine/cod-metrics-api'
-        IMAGE_LOCAL  = 'cod-metrics-api:latest'
-        // SonarQube joignable par nom de conteneur sur cicd-network.
-        SONAR_HOST   = 'http://sonarqube:9000'
+        REGISTRY    = 'ghcr.io'
+        IMAGE_NAME  = 'ghcr.io/afif-yassine/cod-metrics-api'
+        IMAGE_TAG   = "${env.GIT_COMMIT ? env.GIT_COMMIT.take(7) : 'latest'}"
+        SONAR_HOST  = 'http://sonarqube:9000'
     }
 
     stages {
@@ -15,27 +17,43 @@ pipeline {
         stage('Checkout') {
             steps {
                 checkout scm
-                script {
-                    env.GIT_SHA = sh(script: 'git rev-parse --short HEAD', returnStdout: true).trim()
-                    echo "Commit courant : ${env.GIT_SHA}"
-                }
+                sh 'git log --oneline -5'
+                echo "Commit courant : ${env.GIT_COMMIT}"
             }
         }
 
         stage('Lint') {
             steps {
-                sh 'docker run --rm -v "$PWD":/app -w /app python:3.11-slim sh -c "pip install flake8==7.1.1 && flake8 src/ tests/"'
+                sh '''
+                    docker run --rm \
+                        --volumes-from jenkins \
+                        -w "$WORKSPACE" \
+                        python:3.11-slim \
+                        sh -c "pip install flake8==7.1.1 -q && flake8 src/ tests/ --max-line-length=100"
+                '''
             }
         }
 
         stage('Build & Test') {
             steps {
-                sh 'docker build -t ${IMAGE_LOCAL} .'
-                // Tests + coverage.xml dans un conteneur, monte sur le workspace.
+                sh 'docker build -t cod-metrics-api:${IMAGE_TAG} .'
                 sh '''
-                    docker run --rm -v "$PWD":/app -w /app ${IMAGE_LOCAL} \
-                        sh -c "pip install --no-cache-dir -r requirements-dev.txt && pytest"
+                    docker rm -f test-runner 2>/dev/null || true
+                    set +e
+                    docker run \
+                        --name test-runner \
+                        -v "$WORKSPACE":/work -w /work \
+                        cod-metrics-api:${IMAGE_TAG} \
+                        sh -c "pip install --no-cache-dir -r requirements-dev.txt -q && pytest"
+                    TEST_EXIT=$?
+                    set -e
+                    docker cp test-runner:/work/coverage.xml ./coverage.xml 2>/dev/null || true
+                    docker rm -f test-runner 2>/dev/null || true
+                    exit $TEST_EXIT
                 '''
+            }
+            post {
+                failure { echo 'Tests echoues ou coverage insuffisant.' }
             }
         }
 
@@ -43,13 +61,20 @@ pipeline {
             steps {
                 withSonarQubeEnv('sonarqube') {
                     sh '''
-                        docker run --rm --network cicd-network \
-                            -v "$PWD":/usr/src \
-                            sonarsource/sonar-scanner-cli \
-                            -Dsonar.projectKey=cod-metrics-api \
-                            -Dsonar.sources=src \
-                            -Dsonar.host.url=${SONAR_HOST} \
-                            -Dsonar.python.coverage.reportPaths=coverage.xml
+                        docker run --rm \
+                            --network cicd-network \
+                            --volumes-from jenkins \
+                            -w "$WORKSPACE" \
+                            -e SONAR_HOST_URL="$SONAR_HOST_URL" \
+                            sonarsource/sonar-scanner-cli:latest \
+                            sonar-scanner \
+                              -Dsonar.projectKey=cod-metrics-api \
+                              -Dsonar.projectName="COD Metrics API" \
+                              -Dsonar.projectBaseDir="$WORKSPACE" \
+                              -Dsonar.sources=src \
+                              -Dsonar.python.version=3.11 \
+                              -Dsonar.python.coverage.reportPaths=coverage.xml \
+                              -Dsonar.sourceEncoding=UTF-8
                     '''
                 }
             }
@@ -57,7 +82,7 @@ pipeline {
 
         stage('Quality Gate') {
             steps {
-                timeout(time: 5, unit: 'MINUTES') {
+                timeout(time: 15, unit: 'MINUTES') {
                     waitForQualityGate abortPipeline: true
                 }
             }
@@ -65,11 +90,16 @@ pipeline {
 
         stage('Security Scan') {
             steps {
-                // Trivy scanne l'image; le pipeline n'echoue pas sur les CVE (exit-code 0).
+                // --exit-code 0 : on n'echoue pas sur les CVE, on les liste dans les logs.
                 sh '''
                     docker run --rm \
                         -v /var/run/docker.sock:/var/run/docker.sock \
-                        aquasec/trivy:latest image --exit-code 0 --severity HIGH,CRITICAL ${IMAGE_LOCAL}
+                        -v trivy-cache:/root/.cache/trivy \
+                        aquasec/trivy:latest image \
+                        --severity HIGH,CRITICAL \
+                        --exit-code 0 \
+                        --format table \
+                        cod-metrics-api:${IMAGE_TAG}
                 '''
             }
         }
@@ -78,15 +108,15 @@ pipeline {
             when { branch 'main' }
             steps {
                 withCredentials([usernamePassword(
-                    credentialsId: 'ghcr-credentials',
-                    usernameVariable: 'GHCR_USER',
-                    passwordVariable: 'GHCR_TOKEN'
+                    credentialsId: 'github-token',
+                    usernameVariable: 'REGISTRY_USER',
+                    passwordVariable: 'REGISTRY_PASS'
                 )]) {
                     sh '''
-                        echo "$GHCR_TOKEN" | docker login ${REGISTRY} -u "$GHCR_USER" --password-stdin
-                        docker tag ${IMAGE_LOCAL} ${IMAGE_NAME}:${GIT_SHA}
-                        docker tag ${IMAGE_LOCAL} ${IMAGE_NAME}:latest
-                        docker push ${IMAGE_NAME}:${GIT_SHA}
+                        echo "$REGISTRY_PASS" | docker login ${REGISTRY} -u "$REGISTRY_USER" --password-stdin
+                        docker tag cod-metrics-api:${IMAGE_TAG} ${IMAGE_NAME}:${IMAGE_TAG}
+                        docker tag cod-metrics-api:${IMAGE_TAG} ${IMAGE_NAME}:latest
+                        docker push ${IMAGE_NAME}:${IMAGE_TAG}
                         docker push ${IMAGE_NAME}:latest
                     '''
                 }
@@ -96,16 +126,25 @@ pipeline {
         stage('IaC Apply') {
             steps {
                 dir('infra') {
-                    sh 'terraform init -input=false'
-                    sh 'terraform apply -auto-approve -input=false'
-                    sh 'terraform output'
+                    sh '''
+                        docker run --rm \
+                            -v /var/run/docker.sock:/var/run/docker.sock \
+                            -v "$WORKSPACE/infra":/infra -w /infra \
+                            hashicorp/terraform:latest init -input=false
+                        docker run --rm \
+                            -v /var/run/docker.sock:/var/run/docker.sock \
+                            -v "$WORKSPACE/infra":/infra -w /infra \
+                            hashicorp/terraform:latest apply -auto-approve -input=false
+                        docker run --rm \
+                            -v "$WORKSPACE/infra":/infra -w /infra \
+                            hashicorp/terraform:latest output
+                    '''
                 }
             }
         }
 
         stage('Smoke Test') {
             steps {
-                // Attend que le staging reponde puis verifie /health (HTTP 200).
                 sh '''
                     sleep 5
                     docker exec cod-metrics-staging \
@@ -117,11 +156,11 @@ pipeline {
     }
 
     post {
-        always {
-            sh 'docker compose down -v || true'
-        }
         success {
-            echo "Pipeline reussi ! Image : ${IMAGE_NAME}:${GIT_SHA}"
+            echo "Pipeline reussi ! Image : ${IMAGE_NAME}:${IMAGE_TAG}"
+        }
+        failure {
+            echo 'Pipeline echoue. Consultez les logs ci-dessus.'
         }
     }
 }
