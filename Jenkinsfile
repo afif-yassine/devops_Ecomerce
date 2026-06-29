@@ -42,12 +42,12 @@ pipeline {
                     set +e
                     docker run \
                         --name test-runner \
-                        -v "$WORKSPACE":/work -w /work \
+                        --volumes-from jenkins \
+                        -w "$WORKSPACE" \
                         cod-metrics-api:${IMAGE_TAG} \
                         sh -c "pip install --no-cache-dir -r requirements-dev.txt -q && pytest"
                     TEST_EXIT=$?
                     set -e
-                    docker cp test-runner:/work/coverage.xml ./coverage.xml 2>/dev/null || true
                     docker rm -f test-runner 2>/dev/null || true
                     exit $TEST_EXIT
                 '''
